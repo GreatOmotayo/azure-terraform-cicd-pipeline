@@ -30,3 +30,4 @@ output "acr" {
     value       = azurerm_container_registry.main.name
 }
 
+# trigger test
