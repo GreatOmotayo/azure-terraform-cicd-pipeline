@@ -87,3 +87,4 @@ resource "random_string" "suffix" {
     special = false
     upper   = false
 }
+# trigger test
