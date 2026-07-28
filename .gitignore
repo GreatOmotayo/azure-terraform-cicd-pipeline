@@ -1,0 +1,26 @@
+# # Local Terraform state (we use remote state, but this guards against accidental local runs)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Terraform working directory - downloaded providers/modules, local cache
+**/.terraform/
+
+# Variable files that may contain environment-specific or sensitive values
+*.tfvars
+*.tfvars.json
+
+# Backend config with real values (if you ever create a local, uncommitted override)
+backend.hcl
+
+# Crash logs
+crash.log
+crash.*.log
+
+# OS-specific junk files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE folders
+.vscode/
+.idea/
