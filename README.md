@@ -62,11 +62,11 @@ terraform output app_service_default_hostname
 ```
 Developer                GitHub                                   Azure
     |                        |                                         |
-    |-- opens PR ----------->|                                         |
-    |                        |-- runs `terraform plan` -------------->|
-    |                        |<-- plan diff -----------------------------|
+    |-- opens PR ----------->|-- [job: plan]                           |
+    |                        |-- runs `terraform plan` --------------->|
+    |                        |<-- plan diff ---------------------------|
     |                        |-- posts plan as PR comment              |
-    |<-- reviews diff --------|                                         |
+    |<-- reviews diff -------|                                         |
     |-- merges to main ----->|                                         |
     |          (or manually  |                                         |
     |           triggers a   |                                         |
@@ -81,11 +81,11 @@ Developer                GitHub                                   Azure
     |                        |                                    configured for
     |                        |                                    that image tag)
     |                        |<-- reads ACR + App Service outputs -----|
-    |                        |-- [job: build_and_push, needs: apply]  |
-    |                        |     az acr login                       |
-    |                        |     docker build + push (tag = SHA) -->|
+    |                        |-- [job: build_and_push, needs: apply]   |
+    |                        |     az acr login                        |
+    |                        |     docker build + push (tag = SHA) --->|
     |                        |     az webapp restart ----------------->|
-    |<-- live app URL ---------|                                         |
+    |<-- live app URL -------|                                         |
 ```
 
 ![GitHub Actions pipeline run, all jobs succeeding](./docs/screenshots/github-actions-success.png)
@@ -156,7 +156,7 @@ Packaging the app as a container image decouples it fully from the host's runtim
 ### 4. Multi-stage Dockerfile
 Separates the dependency-install stage from the final runtime image, keeping the final image free of anything specific to the build process. Kept as the structurally correct pattern even for this app's simple build, since it's ready to absorb a real compile/bundle step later without rework.
 
-### 5. `node:20-lts-alpine` base image
+### 5. `node:20-alpine` base image
 Roughly 6-8x smaller than the default Debian-based Node image, meaning faster registry pushes/pulls and a smaller attack surface. Trade-off: Alpine's `musl` libc can occasionally clash with native Node modules expecting `glibc` — a non-issue here since `express` has no native bindings.
 
 ### 6. ACR with `admin_enabled = false`, authenticated via Managed Identity
@@ -278,11 +278,6 @@ Under **Settings → Secrets and variables → Actions → Secrets**:
 | `AZURE_TENANT_ID` | Your Azure AD tenant ID |
 | `TF_STATE_STORAGE_ACCOUNT` | The storage account name from Step 1 |
 
-Under **Settings → Secrets and variables → Actions → Variables**:
-
-| Variable name | Value |
-|---|---|
-| `PROJECT_NAME` | `cicd-demo` |
 
 ### 5. Open a pull request
 
@@ -375,7 +370,6 @@ Cause: the `build_and_push` job attempted to read Terraform outputs without firs
 
 Documented honestly — these are deliberate scope boundaries, not oversights:
 
-- [ ] **Full end-to-end verification screenshots** to be added once the current pipeline configuration completes a live run.
 - [ ] **Add a `workflow_dispatch` ref/branch guard** — the OIDC federated credential scoping means a manual run against a branch other than `main` will fail authentication by design, but an explicit guard in the workflow itself would make this intentional rather than incidental.
 - [ ] **Refactor duplicated `terraform init` logic** (repeated across `plan` and `apply`) into a reusable composite action.
 - [ ] **De-duplicate PR plan comments** — currently every push to a PR posts a new comment rather than updating an existing one.
