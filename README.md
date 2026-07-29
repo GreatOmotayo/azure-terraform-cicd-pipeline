@@ -45,13 +45,15 @@ The deployed app is **Aduke** — a small artisan home-goods landing page, built
 
 ## Live Demo
 
-Once deployed, the app is available at the hostname output by Terraform:
+The infrastructure for this project is provisioned on demand via the pipeline described below, rather than kept running continuously, to avoid unnecessary Azure costs for a portfolio project. The screenshot below shows the deployed app from the most recent successful pipeline run.
+
+![Live app screenshot](./docs/screenshots/live-app.png)
+
+To see it live: run `terraform apply` (or trigger the pipeline via a merge to `main`) — the app will be provisioned and reachable within a few minutes at the hostname returned by:
 
 ```bash
 terraform output app_service_default_hostname
 ```
-
-![Live app screenshot](./docs/screenshots/live-app.png)
 
 ---
 
@@ -363,6 +365,9 @@ Cause: GitHub's OIDC subject claim included a numeric account/repo ID suffix (`r
 
 **PR comment step — `ReferenceError: azurerm_container_registry is not defined`**
 Cause: the "Comment plan on PR" step interpolated the raw Terraform plan output (`${{ steps.plan.outputs.stdout }}`) directly inside a JavaScript template literal (backtick string) in the `actions/github-script` step. Since the plan output contained a `${...}`-shaped sequence (a resource address reference), JavaScript's own template-literal parser interpreted it as real code to evaluate, rather than inert text — attempting to look up a non-existent variable. Fix: passed the plan output through the step's `env:` block instead (`PLAN: "${{ steps.plan.outputs.stdout }}"`) and read it in the script via `process.env.PLAN`, keeping it as safe string data regardless of its contents.
+
+**`build_and_push` job — `Error: Output "app_service_name" not found`**
+Cause: the `build_and_push` job attempted to read Terraform outputs without first running `terraform init` in that job. Every GitHub Actions job runs on a completely fresh, isolated runner with no shared filesystem state from other jobs — so a job that only *reads* Terraform outputs still needs its own `init` step against the remote backend, exactly like the jobs that run `plan` or `apply`. Fix: added the same `Setup Terraform` and `Terraform Init` steps used in `plan`/`apply` to `build_and_push`, before the step that reads outputs.
 
 ---
 
