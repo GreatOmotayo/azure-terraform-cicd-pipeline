@@ -1,5 +1,5 @@
 # Build stage - installs dependencies in a clean environment
-FROM node:20-lts-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY . .
 
 
 # Runtime stage - copies only what's needed to run the app, not the build tooling
-FROM node:20-lts-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
