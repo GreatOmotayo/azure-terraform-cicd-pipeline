@@ -89,3 +89,4 @@ resource "random_string" "suffix" {
 }
 # trigger test
 # trigger test
+# trigger debug run
