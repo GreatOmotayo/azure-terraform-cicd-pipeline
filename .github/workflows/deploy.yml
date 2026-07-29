@@ -125,6 +125,20 @@ jobs:
                 tenant-id: ${{ secrets.AZURE_TENANT_ID }}
                 subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with: 
+                terraform_version: "1.9.0"
+
+            - name: Terraform Init
+              working-directory: terraform
+              run: |
+                terraform init \
+                   -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}" \
+                   -backend-config="resource_group_name=rg-tfstate" \
+                   -backend-config="container_name=tf-state" \
+                   -backend-config="key=cicd-demo.dev.tfstate" 
+
             - name: Get Terraform outputs
               id: tf_outputs
               working-directory: terraform
