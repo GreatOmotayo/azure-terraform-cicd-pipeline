@@ -1,4 +1,4 @@
-name: Terraform CI/CD
+name: Provision, Build & Deploy
 
 on:
     workflow_dispatch:
