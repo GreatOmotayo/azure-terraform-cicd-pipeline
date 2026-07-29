@@ -7,7 +7,7 @@ output "resource_group_name" {
 
 output "app_service_name" {
   description = "The name of the Azure App Service Plan created."
-  value       = azurerm_service_plan.main.name
+  value       = azurerm_linux_web_app.main.name
 }
 
 output "app_service_default_hostname" {
