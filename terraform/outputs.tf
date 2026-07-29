@@ -5,7 +5,7 @@ output "resource_group_name" {
   value       = azurerm_resource_group.main.name
 }
 
-output "app_service_plan_name" {
+output "app_service_name" {
   description = "The name of the Azure App Service Plan created."
   value       = azurerm_service_plan.main.name
 }
@@ -25,7 +25,7 @@ output "acr_login_server" {
     value       = azurerm_container_registry.main.login_server
 }
 
-output "acr" {
+output "acr_name" {
     description = "The name of the Azure Container Registry created."
     value       = azurerm_container_registry.main.name
 }
