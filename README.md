@@ -177,16 +177,19 @@ GitHub Actions authenticates using short-lived tokens, trusted by Azure AD only 
 ### 11. Service Principal scoped to subscription-level `Contributor`, not `Owner`
 `Contributor` can create/modify/delete resources but cannot manage RBAC/permissions. Subscription-level scope (rather than a single resource group) is necessary because Terraform's own `azurerm_resource_group` resource creates the resource group itself.
 
-### 12. Single Azure subscription with per-environment resource groups
+### 12. `User Access Administrator` added alongside `Contributor`, scoped to the specific gap that required it
+`Contributor` deliberately excludes `Microsoft.Authorization/roleAssignments/write` — it can manage resources but not who has access to them. This project's Terraform config includes one resource that needs exactly that permission: `azurerm_role_assignment.acr_pull`, which grants the App Service's Managed Identity the `AcrPull` role on the Container Registry. Rather than escalating the Service Principal to `Owner` (which would grant broad governance permissions this project has no reason to touch), `User Access Administrator` was added as a second, narrowly-scoped role — giving the Service Principal precisely "manage resources" plus "manage access to resources it creates," and nothing more.
+
+### 13. Single Azure subscription with per-environment resource groups
 At enterprise scale, subscription-per-environment (or a full Management Group hierarchy with Azure Policy guardrails) is the stronger pattern. For this project's scope, that overhead isn't justified; resource-group-level separation is the pragmatic middle ground most small-to-mid teams use before graduating to full subscription isolation.
 
-### 13. Remote state bootstrapped via a one-time Azure CLI script
+### 14. Remote state bootstrapped via a one-time Azure CLI script
 Using Terraform to provision the very storage account Terraform needs for its own state creates a circular dependency. A one-time CLI script is the documented Microsoft-recommended pattern for this exact bootstrapping problem, rather than maintaining a second, separate Terraform configuration just for this.
 
-### 14. `.terraform.lock.hcl` is committed; `.terraform/` and `*.tfstate` are not
+### 15. `.terraform.lock.hcl` is committed; `.terraform/` and `*.tfstate` are not
 The lock file pins exact provider versions/checksums so every environment resolves identical provider builds. The `.terraform/` cache and state files are either fully regenerable or actively sensitive, so they're excluded.
 
-### 15. Landing page as a real, designed application
+### 16. Landing page as a real, designed application
 The deployed app (Aduke, an artisan home-goods concept) is a genuine small landing page rather than a bare placeholder response — proof the pipeline ships something presentable, not just mechanically functional.
 
 ---
@@ -229,6 +232,15 @@ az ad sp create-for-rbac \
   --name "sp-cicd-demo-github" \
   --role "Contributor" \
   --scopes /subscriptions/<YOUR_SUBSCRIPTION_ID>
+```
+
+Grant an additional role needed specifically for the ACR pull role assignment this project's Terraform config creates — `Contributor` alone cannot manage RBAC:
+
+```bash
+az role assignment create \
+  --assignee <YOUR_APP_CLIENT_ID> \
+  --role "User Access Administrator" \
+  --scope /subscriptions/<YOUR_SUBSCRIPTION_ID>
 ```
 
 ### 3. Configure OIDC federated credentials
@@ -342,6 +354,15 @@ Cause: a mistyped `-backend-config` flag (a hyphen where an `=` should have been
 Cause: the target region had a 0 vCPU quota for VM-backed compute, affecting Linux App Service Plans across every SKU tier. Fix: confirmed quota availability in an alternate region and updated the `location` variable — a real example of infrastructure decisions being shaped by platform constraints, not just architecture preference.
 
 **Known, proactively-flagged provider quirk:** the `azurerm` Terraform provider has a documented rough edge where Managed Identity-based ACR pull configuration doesn't always reliably trigger on the very first `apply`, occasionally requiring a manual confirmation in the Azure Portal's Deployment Center blade. Flagged here as a known tooling limitation, not a configuration mistake.
+
+**`terraform apply` — `403 AuthorizationFailed` on `azurerm_role_assignment.acr_pull`**
+Cause: the Service Principal's `Contributor` role explicitly excludes `Microsoft.Authorization/roleAssignments/write` — it can manage resources but not grant roles to other identities, which is exactly what the ACR pull role assignment requires. Fix: added `User Access Administrator` as a second, narrowly-scoped role on the same Service Principal, rather than escalating to `Owner`.
+
+**OIDC — `AADSTS700213: No matching federated identity record found`**
+Cause: GitHub's OIDC subject claim included a numeric account/repo ID suffix (`repo:owner@12345/repo@67890:ref:...`) not originally present in the configured federated credential's subject — a documented GitHub behavior that appears for newly created or recently renamed repositories, as a safeguard against name-based impersonation. A separate, unrelated typo (`refs/head/main` instead of `refs/heads/main`) compounded the same error on a second attempt. Fix: updated the federated credential's subject to match exactly what GitHub was presenting, confirmed via `az ad app federated-credential list`.
+
+**PR comment step — `ReferenceError: azurerm_container_registry is not defined`**
+Cause: the "Comment plan on PR" step interpolated the raw Terraform plan output (`${{ steps.plan.outputs.stdout }}`) directly inside a JavaScript template literal (backtick string) in the `actions/github-script` step. Since the plan output contained a `${...}`-shaped sequence (a resource address reference), JavaScript's own template-literal parser interpreted it as real code to evaluate, rather than inert text — attempting to look up a non-existent variable. Fix: passed the plan output through the step's `env:` block instead (`PLAN: "${{ steps.plan.outputs.stdout }}"`) and read it in the script via `process.env.PLAN`, keeping it as safe string data regardless of its contents.
 
 ---
 
