@@ -167,4 +167,4 @@ jobs:
               run: |
                 az webapp restart \
                    --name ${{ steps.tf_outputs.outputs.app_service_name }} \
-                   --resource-group rg-${{ steps.tf_outputs.outputs.resource_group_name }} 
+                   --resource-group ${{ steps.tf_outputs.outputs.resource_group_name }} 
